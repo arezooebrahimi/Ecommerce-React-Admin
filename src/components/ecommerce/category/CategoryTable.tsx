@@ -1,4 +1,7 @@
-import { useState } from "react";
+import React, { useEffect, useState } from 'react';
+import { useGetPaginatedCategoriesMutation } from '../../../api/categoryApi';
+import { PaginatedCategoriesResponse } from '../../../types/category';
+import { EditIcon, TrashIcon } from "../../../icons";
 import {
   Table,
   TableBody,
@@ -6,96 +9,62 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { EditIcon, TrashIcon } from "../../../icons";
+import Alert from '../../ui/alert/Alert';
 import AddCategoryModal from "./AddCategoryModal";
 
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  productCount: number;
-}
 
-const categories: Category[] = [
-  {
-    id: 1,
-    name: "لپ‌تاپ",
-    slug: "laptop",
-    productCount: 15,
-  },
-  {
-    id: 2,
-    name: "گوشی هوشمند",
-    slug: "smartphone",
-    productCount: 25,
-  },
-  {
-    id: 3,
-    name: "ساعت",
-    slug: "watch",
-    productCount: 10,
-  },
-  {
-    id: 4,
-    name: "لوازم جانبی",
-    slug: "accessories",
-    productCount: 30,
-  },
-  {
-    id: 5,
-    name: "تبلت",
-    slug: "tablet",
-    productCount: 12,
-  },
-  {
-    id: 6,
-    name: "هدفون",
-    slug: "headphone",
-    productCount: 18,
-  },
-  {
-    id: 7,
-    name: "اسپیکر",
-    slug: "speaker",
-    productCount: 8,
-  },
-  {
-    id: 8,
-    name: "کیبورد",
-    slug: "keyboard",
-    productCount: 14,
-  },
-  {
-    id: 9,
-    name: "ماوس",
-    slug: "mouse",
-    productCount: 20,
-  },
-  {
-    id: 10,
-    name: "مانیتور",
-    slug: "monitor",
-    productCount: 9,
-  },
-];
-
-export default function CategoryTable() {
-  const [currentPage, setCurrentPage] = useState(1);
+const CategoryTable: React.FC = () => {
+  const [getPaginatedCategories, { isLoading, error }] = useGetPaginatedCategoriesMutation();
   const [showModal, setShowModal] = useState(false);
-  const itemsPerPage = 5;
-  const totalPages = Math.ceil(categories.length / itemsPerPage);
+  const [categories, setCategories] = useState<PaginatedCategoriesResponse | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  const paginatedCategories = categories.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const fetchCategories = async (page: number) => {
+    try {
+      const result = await getPaginatedCategories({ page, perPage: itemsPerPage }).unwrap();
+      setCategories(result);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories(currentPage);
+  }, [currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
 
   const handleAddCategory = (name: string, slug: string) => {
-    // Here you would typically make an API call to add the category
     console.log("Adding category:", { name, slug });
   };
 
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg">در حال بارگذاری...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert
+        variant="error"
+        title="خطا"
+        message="دریافت اطلاعات با خطا مواجه شد !!!"
+        showLink={true}
+        linkHref="/"
+        linkText="گزارش خطا"
+      />
+    );
+  }
+
   return (
+
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">
       <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -130,7 +99,7 @@ export default function CategoryTable() {
                 isHeader
                 className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
               >
-                تعداد محصولات
+                دسته پدر
               </TableCell>
               <TableCell
                 isHeader
@@ -142,8 +111,8 @@ export default function CategoryTable() {
           </TableHeader>
 
           <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {paginatedCategories.map((category) => (
-              <TableRow key={category.id}>
+            {categories?.data.items.map((category) => (
+              <TableRow key={category.slug}>
                 <TableCell className="py-3">
                   <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                     {category.name}
@@ -153,7 +122,7 @@ export default function CategoryTable() {
                   {category.slug}
                 </TableCell>
                 <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {category.productCount}
+                  {category.parentName || '-'}
                 </TableCell>
                 <TableCell className="py-3">
                   <div className="flex items-center gap-2">
@@ -171,31 +140,34 @@ export default function CategoryTable() {
         </Table>
       </div>
 
-      {/* Pagination */}
-      <div className="mt-4 flex items-center justify-between">
+      {
+        categories && 
+         <div className="mt-4 flex items-center justify-between">
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          نمایش {paginatedCategories.length} از {categories.length} دسته
+          نمایش {((currentPage-1)*itemsPerPage)+categories.data.items.length} از {categories.data.total} دسته
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
             className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
           >
             قبلی
           </button>
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            صفحه {currentPage} از {totalPages}
+             صفحه {currentPage} از {Math.ceil(categories.data.total / itemsPerPage)}
           </span>
           <button
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === categories.data.total}
             className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
           >
             بعدی
           </button>
         </div>
       </div>
+      }
+     
 
       <AddCategoryModal
         show={showModal}
@@ -204,4 +176,6 @@ export default function CategoryTable() {
       />
     </div>
   );
-} 
+};
+
+export default CategoryTable; 
