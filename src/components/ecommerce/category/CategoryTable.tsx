@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { useGetPaginatedCategoriesQuery } from '../../../api/categoryApi';
+import { useGetPaginatedCategoriesQuery, useDeleteCategoriesMutation } from '../../../api/categoryApi';
 import { CategoryItem } from '../../../types/category';
+import { categoryColumns, categoryFilterFields } from './categoryTableConfig';
 import DataTable from '../../ui/table/DataTable';
 import AddCategoryModal from "./AddCategoryModal";
-import { categoryColumns, categoryFilterFields } from './categoryTableConfig';
+
 
 const CategoryTable: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
-
+  const [deleteCategories, { isLoading: isDeleting }] = useDeleteCategoriesMutation();
   const handleAddCategory = (name: string, slug: string) => {
     console.log("Adding category:", { name, slug });
   };
@@ -23,6 +24,8 @@ const CategoryTable: React.FC = () => {
           addButtonText="افزودن دسته جدید"
           filterFields={categoryFilterFields}
           defaultSort={{ column: 'name', order: 'desc' }}
+          deleteFunc={deleteCategories}
+          isLoadingDelete = {isDeleting}
         />
       </div>
 

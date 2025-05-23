@@ -1,4 +1,5 @@
 export interface CategoryItem {
+  id: string | number;
   name: string;
   slug: string;
   parentName: string | null;
@@ -41,4 +42,13 @@ export interface PaginatedCategoriesRequest {
   filters?: Filters;
 }
 
-export type SortOrder = 'asc' | 'desc'; 
+export type SortOrder = 'asc' | 'desc';
+
+export interface DeleteCategoriesResponse {
+  isSuccess: boolean;
+  statusCode: number;
+  message: string;
+}
+
+
+

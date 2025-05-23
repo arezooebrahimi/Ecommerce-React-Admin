@@ -29,3 +29,10 @@ export interface FilterInput {
   value: string;
   operator: 'and' | 'or';
 }
+
+
+export interface DeleteDataResponse {
+  isSuccess: boolean;
+  statusCode: number;
+  message: string;
+}

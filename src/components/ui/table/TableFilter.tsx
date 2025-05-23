@@ -63,13 +63,13 @@ const TableFilter: React.FC<TableFilterProps> = ({
 
   return (
     <div className="my-4 space-y-4">
-      <div className="grid grid-cols-12 gap-2 w-full">
-        <div className="col-span-10">
+      <div className="flex flex-col gap-4 w-full">
+        <div className="w-full">
           {filterInputs.map((input, index) => (
-            <div key={index} className="flex flex-col gap-2 mb-2 w-full">
-              <div className="grid grid-cols-12 gap-2 w-full">
+            <div key={index} className="flex flex-col gap-2 mb-4 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2 w-full">
                 {index > 0 ? (
-                  <div className="col-span-1">
+                  <div className="md:col-span-1">
                     <Select
                       options={[
                         { value: 'and', label: 'و' },
@@ -77,21 +77,21 @@ const TableFilter: React.FC<TableFilterProps> = ({
                       ]}
                       defaultValue={input.operator}
                       onChange={(value) => updateFilterInput(index, { operator: value as 'and' | 'or' })}
-                      className="dark:bg-dark-900"
+                      className="dark:bg-dark-900 w-full"
                       placeholder=""
                     />
                   </div>
-                ) : <div className="col-span-1"></div>}
-                <div className="col-span-2">
+                ) : <div className="md:col-span-1"></div>}
+                <div className="md:col-span-2">
                   <Select
                     options={fields.map(field => ({ value: field.key, label: field.label }))}
                     defaultValue={input.field}
                     onChange={(value) => updateFilterInput(index, { field: value })}
-                    className="dark:bg-dark-900"
+                    className="dark:bg-dark-900 w-full"
                     placeholder=""
                   />
                 </div>
-                <div className="col-span-1">
+                <div className="md:col-span-2">
                   <Select
                     options={[
                       { value: 'contains', label: 'شامل' },
@@ -101,24 +101,21 @@ const TableFilter: React.FC<TableFilterProps> = ({
                     ]}
                     defaultValue={input.mode}
                     onChange={(value) => updateFilterInput(index, { mode: value as FilterMode })}
+                    className="w-full"
                     placeholder=""
                   />
                 </div>
-                <div className="col-span-7">
+                <div className="md:col-span-6">
                   <Input
                     type="text"
                     value={input.value}
                     onChange={(e) => updateFilterInput(index, { value: e.target.value })}
-                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                      if (e.key === 'Enter') {
-                        handleFilter();
-                      }
-                    }}
                     placeholder="جستجو..."
+                    className="w-full"
                   />
                 </div>
                 {index > 0 && (
-                  <div className="col-span-1">
+                  <div className="md:col-span-1 flex justify-end">
                     <button
                       onClick={() => removeFilterInput(index)}
                       className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
@@ -131,27 +128,25 @@ const TableFilter: React.FC<TableFilterProps> = ({
             </div>
           ))}
         </div>
-        <div className="col-span-2">
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={addFilterInput}
-              className="whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-            >
-              افزودن فیلتر
-            </button>
-            <button
-              onClick={handleFilter}
-              className="whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white dark:bg-blue-500"
-            >
-              اعمال فیلترها
-            </button>
-            <button
-              onClick={handleClearFilters}
-              className="whitespace-nowrap rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-600 dark:border-red-700 dark:bg-gray-800 dark:text-red-400"
-            >
-              حذف فیلترها
-            </button>
-          </div>
+        <div className="flex flex-col md:flex-row gap-2 justify-end">
+          <button
+            onClick={addFilterInput}
+            className="whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
+          >
+            افزودن فیلتر
+          </button>
+          <button
+            onClick={handleFilter}
+            className="whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            اعمال فیلترها
+          </button>
+          <button
+            onClick={handleClearFilters}
+            className="whitespace-nowrap rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-700 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-900/20"
+          >
+            حذف فیلترها
+          </button>
         </div>
       </div>
     </div>

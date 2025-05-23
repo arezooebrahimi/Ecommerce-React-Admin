@@ -6,10 +6,12 @@ import {
     TableHeader as TableHeaderComponent,
     TableRow,
 } from "./index";
-import { SortOrder, Filters, FilterField } from '../../../types/table';
+import { SortOrder, Filters, DeleteDataResponse, FilterField } from '../../../types/table';
 import TableHeader from './TableHeader';
 import TableFilter from './TableFilter';
 import TablePagination from './TablePagination';
+import DeleteConfirmModal from '../../ecommerce/common/DeleteConfirmModal';
+import Checkbox from '../../form/input/Checkbox';
 
 export interface Column<T> {
     key: keyof T;
@@ -37,7 +39,7 @@ export interface QueryResponse<T> {
     message: string;
 }
 
-interface DataTableProps<T> {
+interface DataTableProps<T extends { id: string | number }> {
     columns: Column<T>[];
     queryHook: (params: QueryParams<T>) => {
         data?: QueryResponse<T>;
@@ -53,9 +55,11 @@ interface DataTableProps<T> {
         order: SortOrder;
     };
     itemsPerPage?: number;
+    deleteFunc?: (params: string[]) => Promise<{ data: DeleteDataResponse } | { error: unknown }>;
+    isLoadingDelete?: boolean;
 }
 
-function DataTable<T>({
+function DataTable<T extends { id: string | number }>({
     columns,
     queryHook,
     title,
@@ -64,6 +68,8 @@ function DataTable<T>({
     filterFields,
     defaultSort,
     itemsPerPage = 10,
+    deleteFunc,
+    isLoadingDelete
 }: DataTableProps<T>) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ column: keyof T; order: SortOrder }>(
@@ -71,6 +77,9 @@ function DataTable<T>({
     );
     const [filters, setFilters] = useState<Filters>({});
     const [showFilter, setShowFilter] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
 
     const queryParams: QueryParams<T> = {
         page: currentPage,
@@ -81,7 +90,7 @@ function DataTable<T>({
 
     const { data, isLoading, error } = queryHook(queryParams);
 
-    if (isLoading) {
+    if (isLoading || isLoadingDelete) {
         return (
             <div className="flex justify-center items-center h-64">
                 <div className="text-lg">در حال بارگذاری...</div>
@@ -124,6 +133,46 @@ function DataTable<T>({
         return sortConfig.order === 'asc' ? '↑' : '↓';
     };
 
+
+    const handleCheckboxChange = (id: string, checked: boolean) => {
+        setSelectedItems(prev => {
+            if (checked) {
+                return [...prev, id];
+            } else {
+                return prev.filter(itemId => itemId !== id);
+            }
+        });
+    };
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedItems(data?.data.items.map(item => item.id.toString()) || []);
+        } else {
+            setSelectedItems([]);
+        }
+    };
+
+    const handleSingleDelete = (id: string) => {
+        setSelectedItems([id]);
+        setShowDeleteModal(true);
+    };
+
+
+    const handleDelete = async () => {
+        if (!deleteFunc) return;
+
+        try {
+            const response = await deleteFunc(selectedItems.map(id => id.toString()));
+            if ('error' in response || !response.data.isSuccess) {
+                throw new Error('Failed to delete items');
+            }
+            setShowDeleteModal(false);
+            setSelectedItems([]);
+        } catch (error) {
+            console.error("Error deleting items:", error);
+        }
+    };
+
     return (
         <div className="space-y-2">
             {(title || onAddClick) && (
@@ -132,14 +181,14 @@ function DataTable<T>({
                     onAddClick={onAddClick}
                     addButtonText={addButtonText}
                     onFilterClick={filterFields ? () => setShowFilter(!showFilter) : undefined}
+                    onDeleteClick={selectedItems.length > 0 ? () => setShowDeleteModal(true) : undefined}
                 />
             )}
 
             {filterFields && (
                 <div
-                    className={`grid transition-all duration-300 ease-in-out ${
-                        showFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-                    }`}
+                    className={`grid transition-all duration-300 ease-in-out ${showFilter ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                        }`}
                 >
                     <div className="overflow-hidden">
                         <TableFilter
@@ -154,6 +203,14 @@ function DataTable<T>({
                 <Table>
                     <TableHeaderComponent className="border-gray-100 dark:border-gray-800 border-y">
                         <TableRow>
+                            {deleteFunc && (
+                                <TableCell className="py-3 w-12">
+                                    <Checkbox
+                                        checked={selectedItems.length === (data?.data.items.length || 0)}
+                                        onChange={handleSelectAll}
+                                    />
+                                </TableCell>
+                            )}
                             {columns.map((column) => (
                                 <TableCell
                                     key={String(column.key)}
@@ -175,6 +232,14 @@ function DataTable<T>({
                     <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
                         {data?.data.items.map((item, index) => (
                             <TableRow key={index}>
+                                {deleteFunc && (
+                                    <TableCell className="py-3 w-12">
+                                        <Checkbox
+                                            checked={selectedItems.includes(item.id.toString())}
+                                            onChange={(checked) => handleCheckboxChange(item.id.toString(), checked)}
+                                        />
+                                    </TableCell>
+                                )}
                                 {columns.map((column) => (
                                     <TableCell key={String(column.key)} className="py-3">
                                         {column.render ? (
@@ -186,6 +251,28 @@ function DataTable<T>({
                                         )}
                                     </TableCell>
                                 ))}
+                                {deleteFunc && (
+                                    <TableCell className="py-3 w-12">
+                                        <button
+                                            onClick={() => handleSingleDelete(item.id.toString())}
+                                            className="text-red-500 hover:text-red-600 transition-colors"
+                                        >
+                                            <svg
+                                                className="size-5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                />
+                                            </svg>
+                                        </button>
+                                    </TableCell>
+                                )}
                             </TableRow>
                         ))}
                     </TableBody>
@@ -201,6 +288,18 @@ function DataTable<T>({
                     onPageChange={handlePageChange}
                 />
             )}
+
+            <DeleteConfirmModal
+                show={showDeleteModal}
+                onClose={() => {
+                    setShowDeleteModal(false);
+                    setSelectedItems([]);
+                }}
+                onConfirm={handleDelete}
+                title="حذف آیتم‌ها"
+                message="آیا از حذف آیتم‌های انتخاب شده اطمینان دارید؟"
+                count={selectedItems.length}
+            />
         </div>
     );
 }
