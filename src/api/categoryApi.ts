@@ -9,15 +9,17 @@ export const categoryApi = createApi({
   baseQuery: fetchBaseQuery({ 
     baseUrl: 'https://localhost:44374/',
   }),
+  tagTypes: ['Category'],
   endpoints: (builder) => ({
-    getPaginatedCategories: builder.mutation<PaginatedCategoriesResponse, PaginatedCategoriesRequest>({
+    getPaginatedCategories: builder.query<PaginatedCategoriesResponse, PaginatedCategoriesRequest>({
       query: (body) => ({
         url: 'admin/Category/GetPaginate',
         method: 'POST',
         body,
       }),
+      providesTags: ['Category'],
     }),
   }),
 });
 
-export const { useGetPaginatedCategoriesMutation } = categoryApi;
+export const { useGetPaginatedCategoriesQuery } = categoryApi;
