@@ -19,10 +19,25 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import Categories from "./pages/Ecommerce/Categories";
-
+import { Toaster } from "react-hot-toast";
+import Medias from "./pages/Ecommerce/media/Medias";
+import AddMedia from "./pages/Ecommerce/media/AddMedia";
 export default function App() {
   return (
     <>
+     <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            padding: '16px',
+            borderRadius: '8px',
+            fontSize: '14px',
+            marginTop: '10vh',
+            transform: 'translateY(-50%)',
+          }
+        }}
+      />
       <Router>
         <ScrollToTop />
         <Routes>
@@ -32,6 +47,9 @@ export default function App() {
 
             {/* Ecommerce */}
             <Route path="/categories" element={<Categories />} />
+
+            <Route path="/medias" element={<Medias />} />
+            <Route path="/add-media" element={<AddMedia />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />

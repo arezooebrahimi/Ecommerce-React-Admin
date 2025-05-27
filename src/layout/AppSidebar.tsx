@@ -40,6 +40,15 @@ const navItems: NavItem[] = [
       { name: "دسته‌بندی‌ها", path: "/categories", pro: false },
     ],
   },
+
+  {
+    icon: <BoxIcon />,
+    name: "رسانه ها",
+    subItems: [
+      { name: "رسانه ها", path: "/medias", pro: false },
+      { name: "افزودن رسانه", path: "/add-media", pro: false },
+    ],
+  },
   {
     icon: <CalenderIcon />,
     name: "تقویم",
