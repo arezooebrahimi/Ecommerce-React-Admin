@@ -1,9 +1,11 @@
 import * as Yup from 'yup';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Formik, Form, FormikContextType, FormikHelpers } from 'formik';
-import { useAddCategoryMutation, useGetParentCategoriesQuery } from '../../../api/categoryApi';
-import { useMedia } from '../../../context/MediaContext';
+import { useAddCategoryMutation, useGetParentCategoriesQuery, useGetCategoryByIdQuery, useEditCategoryMutation } from '../../../api/categoryApi';
+import { useGetMediaByIdMutation } from '../../../api/mediaApi';
+import { useMedia, MediaFile } from '../../../context/MediaContext';
 import { AddCategoryRequest } from '../../../types/category';
+import { MediaFormat } from '../../../types/media';
 import Label from '../../../components/form/Label';
 import Input from '../../../components/form/input/InputField';
 import Select from '../../../components/form/Select';
@@ -11,10 +13,13 @@ import TextArea from '../../../components/form/input/TextArea';
 import Checkbox from '../../../components/form/input/Checkbox';
 import MediaGalleryModal from '../media/MediaGalleryModal';
 import SeoForm from '../common/SeoForm';
+import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { Media } from '../../../types/common';
 
 interface CategoryFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  categoryId?: string;
 }
 
 const validationSchema = Yup.object().shape({
@@ -28,7 +33,7 @@ const validationSchema = Yup.object().shape({
     .typeError('ترتیب باید عدد باشد')
     .min(0, 'ترتیب نمی‌تواند منفی باشد'),
   slug: Yup.string()
-    .required('نامک الزامی است')
+    .required('اسلاگ الزامی است')
     .matches(/^[a-z0-9-]+$/, 'اسلاگ فقط می‌تواند شامل حروف کوچک انگلیسی، اعداد و خط تیره باشد'),
   parentId: Yup.string().nullable(),
   displayOnHomePage: Yup.boolean(),
@@ -60,14 +65,77 @@ const initialValues = {
   canonicalUrl: null as string | null,
 };
 
-const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
+const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel, categoryId }) => {
   const [addCategory] = useAddCategoryMutation();
+  const [editCategory] = useEditCategoryMutation();
+  const [getMediaById] = useGetMediaByIdMutation();
   const { data: parentCategories } = useGetParentCategoriesQuery();
+  const { data: categoryData, isLoading } = useGetCategoryByIdQuery(categoryId || '', { skip: !categoryId });
   const [showMediaGallery, setShowMediaGallery] = useState(false);
   const [groupId, setGroupId] = useState('');
   const [activeTab, setActiveTab] = useState<'general' | 'seo'>('general');
   const formikRef = useRef<FormikContextType<typeof initialValues>>(null);
-  const { selectedFiles, removeFile, clearAllFiles } = useMedia();
+  const { selectedFiles, removeFile, clearAllFiles, addFile } = useMedia();
+
+  const handleAddFile = useCallback((file: MediaFile, groupId: string) => {
+    addFile(file, groupId);
+  }, [addFile]);
+
+  useEffect(() => {
+    clearAllFiles();
+  }, []);
+
+  useEffect(() => {
+    if (categoryData && formikRef.current) {
+      formikRef.current.setValues({
+        name: categoryData.data.name,
+        description: categoryData.data.description || '',
+        order: categoryData.data.order,
+        slug: categoryData.data.slug,
+        parentId: categoryData.data.parentId,
+        displayOnHomePage: categoryData.data.displayOnHomePage,
+        orderOnHomePage: categoryData.data.orderOnHomePage,
+        seoTitle: categoryData.data.seoTitle || '',
+        metaDescription: categoryData.data.metaDescription || '',
+        isIndexed: categoryData.data.isIndexed,
+        isFollowed: categoryData.data.isFollowed,
+        canonicalUrl: categoryData.data.canonicalUrl,
+      });
+
+      if (categoryData.data.medias) {
+        const fetchMediaDetails = async () => {
+          try {
+            const mediaDetails = await Promise.all(
+              categoryData.data.medias.map(async (media:Media) => {
+                const result = await getMediaById(media.mediaId).unwrap();
+                return result.data;
+              })
+            );
+            categoryData.data.medias.forEach((media:Media, index:number) => {
+              const mediaDetail = mediaDetails[index];
+              if (mediaDetail) {
+                const thumbnail = mediaDetail.formats.find((f: MediaFormat) => f.format === 'thumbnail');
+                handleAddFile({
+                  id: media.mediaId,
+                  url: thumbnail ? `${import.meta.env.VITE_MEDIA_STORAGE_URL}/${thumbnail.filePath}` : '',
+                  filePath: thumbnail ? thumbnail.filePath : '',
+                  groupId: media.isPrimary ? 'medias' : 'home-image',
+                  isSelected: true,
+                  altText: media.altText || '',
+                  caption: media.caption || '',
+                  title: media.title || ''
+                }, media.isPrimary ? 'medias' : 'home-image');
+              }
+            });
+          } catch (error) {
+            console.error('Error fetching media details:', error);
+          }
+        };
+
+        fetchMediaDetails();
+      }
+    }
+  }, [categoryData, getMediaById]);
 
   const handleShowMediaGallery = (groupId: string) => {
     setShowMediaGallery(true);
@@ -77,6 +145,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
   const handleSubmit = async (values: typeof initialValues, { setSubmitting, resetForm }: FormikHelpers<typeof initialValues>) => {
     try {
       const request: AddCategoryRequest = {
+        ...(categoryId && { id: categoryId }),
         name: values.name,
         slug: values.slug,
         parentId: values.parentId,
@@ -91,7 +160,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
         canonicalUrl: values.canonicalUrl,
         medias: []
       }
-      
+
       selectedFiles
         .filter(file => file.groupId === 'medias' && file.isSelected)
         .forEach(media => {
@@ -102,7 +171,7 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
             caption: media.caption,
             title: media.title
           });
-      });
+        });
 
       selectedFiles
         .filter(file => file.groupId === 'home-image' && file.isSelected)
@@ -114,18 +183,31 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
             caption: media.caption,
             title: media.title
           });
-      });
+        });
 
-      await addCategory(request).unwrap();
+      if (categoryId) {
+        await editCategory(request).unwrap();
+      } else {
+        await addCategory(request).unwrap();
+      }
+
       clearAllFiles();
       onSuccess?.();
       resetForm();
     } catch (error) {
-      console.error('Error adding category:', error);
+      console.error('Error saving category:', error);
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -143,22 +225,20 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
                   <button
                     type="button"
                     onClick={() => setActiveTab('general')}
-                    className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
-                      activeTab === 'general'
-                        ? 'border-brand-500 text-brand-600 dark:text-brand-400'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                    }`}
+                    className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${activeTab === 'general'
+                      ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
                   >
                     اطلاعات کلی
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab('seo')}
-                    className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${
-                      activeTab === 'seo'
-                        ? 'border-brand-500 text-brand-600 dark:text-brand-400'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                    }`}
+                    className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium ${activeTab === 'seo'
+                      ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                      }`}
                   >
                     اطلاعات سئو
                   </button>
@@ -280,36 +360,34 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
                       </button>
                     </div>
                     {selectedFiles.filter(file => file.groupId === 'home-image' && file.isSelected).length > 0 && (
-                      <div className="mt-4">
-                        <div className="flex flex-wrap gap-2">
-                          {selectedFiles.filter(file => file.groupId === 'home-image' && file.isSelected).map((file) => (
-                            <div key={file.id} className="relative group">
-                              <img
-                                src={file.url}
-                                alt={file.altText || ''}
-                                className="h-20 w-20 rounded-lg object-cover"
-                              />
-                              <button
-                                onClick={() => removeFile(file.id, file.groupId)}
-                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                              {file.title && (
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
-                                  {file.title}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedFiles.filter(file => file.groupId === 'home-image' && file.isSelected).map((file) => (
+                          <div key={file.id} className="relative group">
+                            <img
+                              src={file.url}
+                              alt={file.altText || ''}
+                              className="h-20 w-20 rounded-lg object-cover"
+                            />
+                            <button
+                              onClick={() => removeFile(file.id, file.groupId)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                            {file.title && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
+                                {file.title}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
 
-                  <div>
+                  <div className='mt-6'>
                     <div className="flex items-center justify-between mb-2">
                       <Label htmlFor="medias">یک تصویر شاخص انتخاب کنید:</Label>
                       <button
@@ -321,31 +399,29 @@ const CategoryForm: React.FC<CategoryFormProps> = ({ onSuccess, onCancel }) => {
                       </button>
                     </div>
                     {selectedFiles.filter(file => file.groupId === 'medias' && file.isSelected).length > 0 && (
-                      <div className="mt-4">
-                        <div className="flex flex-wrap gap-2">
-                          {selectedFiles.filter(file => file.groupId === 'medias' && file.isSelected).map((file) => (
-                            <div key={file.id} className="relative group">
-                              <img
-                                src={file.url}
-                                alt={file.altText || ''}
-                                className="h-20 w-20 rounded-lg object-cover"
-                              />
-                              <button
-                                onClick={() => removeFile(file.id, file.groupId)}
-                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                              {file.title && (
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
-                                  {file.title}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedFiles.filter(file => file.groupId === 'medias' && file.isSelected).map((file) => (
+                          <div key={file.id} className="relative group">
+                            <img
+                              src={file.url}
+                              alt={file.altText || ''}
+                              className="h-20 w-20 rounded-lg object-cover"
+                            />
+                            <button
+                              onClick={() => removeFile(file.id, file.groupId)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                            {file.title && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
+                                {file.title}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

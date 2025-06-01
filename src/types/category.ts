@@ -91,4 +91,12 @@ export interface GetParentCategoriesResponse {
 }
 
 
+export interface GetCategoryByIdResponse {
+  data: AddCategoryRequest;
+  isSuccess: boolean;
+  statusCode: number;
+  message: string;
+}
+
+
 

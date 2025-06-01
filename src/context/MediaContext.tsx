@@ -36,14 +36,15 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       if (prev.some(f => f.id === file.id && f.groupId === groupId)) {
         return prev;
       }
-      return [...prev, { ...file, isSelected: false, groupId }];
+      return [...prev, { ...file, isSelected: true, groupId }];
     });
   };
 
   const removeFile = (fileId: string, groupId?: string) => {
-    setSelectedFiles(prev => 
-      prev.filter(file => !(file.id === fileId && (!groupId || file.groupId === groupId)))
-    );
+    setSelectedFiles(prev => {
+      const newFiles = prev.filter(file => !(file.id === fileId && (!groupId || file.groupId === groupId)));
+      return newFiles;
+    });
   };
 
   const updateFile = (fileId: string,groupId: string, data: Partial<MediaFile>) => {

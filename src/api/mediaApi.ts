@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { MediaResponse, MediaRequest, UploadMediaResponse,DeleteMediaResponse} from '../types/media';
+import { MediaResponse, MediaRequest, UploadMediaResponse,DeleteMediaResponse, MediaItem} from '../types/media';
 
 
 
@@ -30,7 +30,13 @@ export const mediaApi = createApi({
         body: ids,
       }),
     }),
+    getMediaById: builder.mutation<{ data: MediaItem, isSuccess: boolean, statusCode: number, message: string }, string>({
+      query: (id) => ({
+        url: `file_manager/media/${id}`,
+        method: 'GET',
+      }),
+    }),
   }),
 });
 
-export const { useGetMediaMutation, useUploadMediaMutation, useDeleteMediaMutation } = mediaApi;
+export const { useGetMediaMutation, useUploadMediaMutation, useDeleteMediaMutation, useGetMediaByIdMutation } = mediaApi;

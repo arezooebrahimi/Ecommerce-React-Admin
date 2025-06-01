@@ -12,11 +12,13 @@ import TableFilter from './TableFilter';
 import TablePagination from './TablePagination';
 import DeleteConfirmModal from '../../ecommerce/common/DeleteConfirmModal';
 import Checkbox from '../../form/input/Checkbox';
+import LoadingSpinner from '../../common/LoadingSpinner';
 
 export interface Column<T> {
-    key: keyof T;
+    key: keyof T | string;
     header: string;
     render?: (item: T) => React.ReactNode;
+    sortable?: boolean;
 }
 
 export interface QueryParams<T> {
@@ -57,6 +59,7 @@ interface DataTableProps<T extends { id: string | number }> {
     itemsPerPage?: number;
     deleteFunc?: (params: string[]) => Promise<{ data: DeleteDataResponse } | { error: unknown }>;
     isLoadingDelete?: boolean;
+    onEdit?: (id: string) => void;
 }
 
 function DataTable<T extends { id: string | number }>({
@@ -69,17 +72,17 @@ function DataTable<T extends { id: string | number }>({
     defaultSort,
     itemsPerPage = 10,
     deleteFunc,
-    isLoadingDelete
+    isLoadingDelete,
+    onEdit
 }: DataTableProps<T>) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ column: keyof T; order: SortOrder }>(
-        defaultSort || { column: columns[0].key, order: 'desc' }
+        defaultSort || { column: columns[0].key as keyof T, order: 'desc' }
     );
     const [filters, setFilters] = useState<Filters>({});
     const [showFilter, setShowFilter] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedItems, setSelectedItems] = useState<string[]>([]);
-
 
     const queryParams: QueryParams<T> = {
         page: currentPage,
@@ -93,7 +96,7 @@ function DataTable<T extends { id: string | number }>({
     if (isLoading || isLoadingDelete) {
         return (
             <div className="flex justify-center items-center h-64">
-                <div className="text-lg">در حال بارگذاری...</div>
+                <LoadingSpinner size="lg" />
             </div>
         );
     }
@@ -110,7 +113,8 @@ function DataTable<T extends { id: string | number }>({
         setCurrentPage(newPage);
     };
 
-    const handleSort = (column: keyof T) => {
+    const handleSort = (column: keyof T | string) => {
+        if (typeof column === 'string') return;
         setSortConfig(prev => ({
             column,
             order: prev.column === column && prev.order === 'desc' ? 'asc' : 'desc'
@@ -128,11 +132,11 @@ function DataTable<T extends { id: string | number }>({
         setCurrentPage(1);
     };
 
-    const getSortIcon = (column: keyof T) => {
+    const getSortIcon = (column: keyof T | string) => {
+        if (typeof column === 'string') return null;
         if (!sortConfig || sortConfig.column !== column) return null;
         return sortConfig.order === 'asc' ? '↑' : '↓';
     };
-
 
     const handleCheckboxChange = (id: string, checked: boolean) => {
         setSelectedItems(prev => {
@@ -156,7 +160,6 @@ function DataTable<T extends { id: string | number }>({
         setSelectedItems([id]);
         setShowDeleteModal(true);
     };
-
 
     const handleDelete = async () => {
         if (!deleteFunc) return;
@@ -217,13 +220,17 @@ function DataTable<T extends { id: string | number }>({
                                     isHeader
                                     className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
                                 >
-                                    <button
-                                        onClick={() => handleSort(column.key)}
-                                        className="flex items-center hover:text-gray-700 w-full text-right"
-                                    >
-                                        {column.header}
-                                        <span className="mr-1">{getSortIcon(column.key)}</span>
-                                    </button>
+                                    {column.sortable !== false ? (
+                                        <button
+                                            onClick={() => handleSort(column.key as keyof T)}
+                                            className="flex items-center hover:text-gray-700 w-full text-right"
+                                        >
+                                            {column.header}
+                                            <span className="mr-1">{getSortIcon(column.key as keyof T)}</span>
+                                        </button>
+                                    ) : (
+                                        <span className="text-right">{column.header}</span>
+                                    )}
                                 </TableCell>
                             ))}
                         </TableRow>
@@ -246,33 +253,55 @@ function DataTable<T extends { id: string | number }>({
                                             column.render(item)
                                         ) : (
                                             <p className="text-gray-800 text-theme-sm dark:text-gray-300">
-                                                {item[column.key] === null ? '—' : String(item[column.key])}
+                                                {item[column.key as keyof T] === null ? '—' : String(item[column.key as keyof T])}
                                             </p>
                                         )}
                                     </TableCell>
                                 ))}
-                                {deleteFunc && (
-                                    <TableCell className="py-3 w-12">
-                                        <button
-                                            onClick={() => handleSingleDelete(item.id.toString())}
-                                            className="text-red-500 hover:text-red-600 transition-colors"
-                                        >
-                                            <svg
-                                                className="size-5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
+                                <TableCell className="py-3 w-24">
+                                    <div className="flex items-center gap-2">
+                                        {onEdit && (
+                                            <button
+                                                onClick={() => onEdit(item.id.toString())}
+                                                className="text-blue-500 hover:text-blue-600 transition-colors"
                                             >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                />
-                                            </svg>
-                                        </button>
-                                    </TableCell>
-                                )}
+                                                <svg
+                                                    className="size-5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                                    />
+                                                </svg>
+                                            </button>
+                                        )}
+                                        {deleteFunc && (
+                                            <button
+                                                onClick={() => handleSingleDelete(item.id.toString())}
+                                                className="text-red-500 hover:text-red-600 transition-colors"
+                                            >
+                                                <svg
+                                                    className="size-5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                                    />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -299,6 +328,7 @@ function DataTable<T extends { id: string | number }>({
                 title="حذف آیتم‌ها"
                 message="آیا از حذف آیتم‌های انتخاب شده اطمینان دارید؟"
                 count={selectedItems.length}
+                isLoading={isLoadingDelete || false}
             />
         </div>
     );
