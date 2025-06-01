@@ -8,9 +8,9 @@ interface Option {
 interface SelectProps {
   options: Option[];
   placeholder?: string;
-  onChange: (value: string) => void;
+  onChange: (value: string | null) => void;
   className?: string;
-  defaultValue?: string;
+  defaultValue?: string | null;
 }
 
 const Select: React.FC<SelectProps> = ({
@@ -21,12 +21,12 @@ const Select: React.FC<SelectProps> = ({
   defaultValue = "",
 }) => {
   // Manage the selected value
-  const [selectedValue, setSelectedValue] = useState<string>(defaultValue);
+  const [selectedValue, setSelectedValue] = useState<string>(defaultValue || "");
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setSelectedValue(value);
-    onChange(value); // Trigger parent handler
+    onChange(value || null); // Trigger parent handler
   };
 
   return (

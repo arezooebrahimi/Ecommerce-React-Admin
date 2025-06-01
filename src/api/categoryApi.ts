@@ -2,7 +2,10 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { 
   PaginatedCategoriesResponse, 
   PaginatedCategoriesRequest,
-  DeleteCategoriesResponse
+  DeleteCategoriesResponse,
+  AddCategoryResponse,
+  AddCategoryRequest,
+  GetParentCategoriesResponse
 } from '../types/category';
 
 export const categoryApi = createApi({
@@ -28,7 +31,21 @@ export const categoryApi = createApi({
       }),
       invalidatesTags: ['Category'],
     }),
+    addCategory: builder.mutation<AddCategoryResponse, AddCategoryRequest>({
+      query: (body) => ({
+        url: 'admin/Category',
+        method: 'POST',
+        body: body,
+      }),
+      invalidatesTags: ['Category'],
+    }),
+    getParentCategories: builder.query<GetParentCategoriesResponse, void>({
+      query: () => ({
+        url: 'admin/Category/GetParentsForSelect',
+        method: 'GET',
+      }),
+    }),
   }),
 });
 
-export const { useGetPaginatedCategoriesQuery,useDeleteCategoriesMutation } = categoryApi;
+export const { useGetPaginatedCategoriesQuery,useDeleteCategoriesMutation,useAddCategoryMutation,useGetParentCategoriesQuery } = categoryApi;

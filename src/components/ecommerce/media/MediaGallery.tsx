@@ -4,53 +4,53 @@ import {
   useDeleteMediaMutation,
 } from "../../../api/mediaApi";
 import { MediaItem } from "../../../types/media";
+import { MediaFile,useMedia } from "../../../context/MediaContext";
 import { FiCopy, FiTrash2, FiImage, FiFile, FiSearch } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import Checkbox from "../../form/input/Checkbox";
 import DetailMediaModal from "./DetailMediaModal";
 import DeleteConfirmModal from "../common/DeleteConfirmModal";
 import debounce from "lodash.debounce";
-import Alert from "../../ui/alert/Alert";
+
 
 interface MediaGalleryProps {
   onSelectionChange?: (selectedIds: string[]) => void;
+  onFileSelect: (file: MediaFile) => void;
+  multiple?: boolean;
+  groupId: string;
 }
 
-const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
-  const [getMedia, { data, isLoading, error }] = useGetMediaMutation();
+const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange, onFileSelect, multiple = false, groupId }) => {
+  const [getMedia, { data, isLoading }] = useGetMediaMutation();
   const [deleteMedia, { isLoading: isDeleting }] = useDeleteMediaMutation();
   const [page, setPage] = useState(1);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<MediaItem | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<MediaItem | null>(null);
   const [isBulkDelete, setIsBulkDelete] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const MEDIA_STORAGE_URL = import.meta.env.VITE_MEDIA_STORAGE_URL;
+  const [searchQuery, setSearchQuery] = useState('');
+  const { selectedFiles,removeFile,addFile } = useMedia();
+  const MEDIA_STORAGE_URL = import.meta.env.VITE_MEDIA_STORAGE_URL
   const itemsPerPage = 12;
 
-  const fetchMedia = useCallback(
-    async (query: string = "") => {
-      try {
-        await getMedia({
-          limit: itemsPerPage,
-          offset: (page - 1) * itemsPerPage,
-          filter: query,
-        });
-      } catch (error) {
-        console.error("Error fetching media:", error);
-        toast.error("Failed to fetch media items");
-      }
-    },
-    [getMedia, page, itemsPerPage]
-  );
+  const fetchMedia = useCallback(async (query: string = '') => {
+    try {
+      await getMedia({
+        limit: itemsPerPage,
+        offset: (page - 1) * itemsPerPage,
+        filter: query,
+      });
+    } catch (error) {
+      console.error('Error fetching media:', error);
+      toast.error('Failed to fetch media items');
+    }
+  }, [getMedia, page, itemsPerPage]);
 
   // Memoize the debounced search function
   const debouncedSearch = useMemo(
-    () =>
-      debounce((query: string) => {
-        fetchMedia(query);
-      }, 500),
+    () => debounce((query: string) => {
+      fetchMedia(query);
+    }, 500),
     [fetchMedia]
   );
 
@@ -84,25 +84,15 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
     setPage(newPage);
   };
 
-  const handleSelectionChange = (id: string) => {
-    setSelectedItems((prev) => {
-      const newSelection = prev.includes(id)
-        ? prev.filter((itemId) => itemId !== id)
-        : [...prev, id];
-
-      onSelectionChange?.(newSelection);
-      return newSelection;
-    });
-  };
 
   const handleCopyPath = (path: string) => {
     const fullPath = `${MEDIA_STORAGE_URL}/${path}`;
     navigator.clipboard.writeText(fullPath);
-    toast.success("آدرس فایل در کلیپ‌بورد کپی شد");
+    toast.success('آدرس فایل در کلیپ‌بورد کپی شد');
   };
 
   const handleDelete = async (id: string) => {
-    const file = data?.data.items.find((item) => item.id === id);
+    const file = data?.data.items.find(item => item.id === id);
     if (file) {
       setFileToDelete(file);
       setIsBulkDelete(false);
@@ -110,22 +100,30 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
     }
   };
 
+  const handleFileSelect = (file: MediaFile) => {
+    if (selectedFiles.some(f => f.id === file.id)) {
+      removeFile(file.id, groupId);
+    } else {
+      addFile({ ...file, groupId }, groupId);
+    }
+  }
+
+
   const handleConfirmDelete = async () => {
     try {
       if (isBulkDelete) {
-        await deleteMedia(selectedItems).unwrap();
-        toast.success(`${selectedItems.length} فایل با موفقیت حذف شد`);
-        setSelectedItems([]);
+        await deleteMedia(selectedFiles.map(f => f.id)).unwrap();
+        toast.success(`${selectedFiles.length} فایل با موفقیت حذف شد`);
         onSelectionChange?.([]);
       } else if (fileToDelete) {
         await deleteMedia([fileToDelete.id]).unwrap();
-        toast.success("فایل با موفقیت حذف شد");
+        toast.success('فایل با موفقیت حذف شد');
       }
       fetchMedia(searchQuery); // Pass current search query
       setDeleteModalOpen(false);
     } catch (error) {
-      console.error("Error deleting files:", error);
-      toast.error("خطا در حذف فایل‌ها");
+      console.error('Error deleting files:', error);
+      toast.error('خطا در حذف فایل‌ها');
     } finally {
       setFileToDelete(null);
       setIsBulkDelete(false);
@@ -133,48 +131,28 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
   };
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) {
+    if (mimeType.startsWith('image/')) {
       return <FiImage className="w-10 h-10 text-gray-400 dark:text-gray-600" />;
     }
     return <FiFile className="w-10 h-10 text-gray-400 dark:text-gray-600" />;
   };
 
   const getThumbnailUrl = (item: MediaItem) => {
-    const thumbnail = item.formats.find(
-      (format) => format.format === "thumbnail"
-    );
-    return thumbnail ? `${MEDIA_STORAGE_URL}/${thumbnail.filePath}` : "";
+    const thumbnail = item.formats.find((format) => format.format === 'thumbnail');
+    return thumbnail ? `${MEDIA_STORAGE_URL}/${thumbnail.filePath}` : '';
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("fa-IR");
+    return new Date(dateString).toLocaleString('fa-IR');
   };
-
-
-  if (error) {
-    return (
-      <Alert
-        variant="error"
-        title="خطا"
-        message="دریافت اطلاعات با خطا مواجه شد !!!"
-        showLink={true}
-        linkHref="/"
-        linkText="گزارش خطا"
-      />
-    );
-  }
-
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg text-gray-800 dark:text-white/90">
-          در حال بارگذاری...
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 dark:border-blue-400"></div>
       </div>
     );
   }
-
 
   return (
     <div className="p-4">
@@ -194,11 +172,11 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
         </div>
       </div>
 
-      {selectedItems.length > 0 && (
+      {selectedFiles.length > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              {selectedItems.length} فایل انتخاب شده
+              {selectedFiles.length} فایل انتخاب شده
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -216,7 +194,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
                   <span>در حال حذف...</span>
                 </div>
               ) : (
-                "حذف انتخاب شده‌ها"
+                'حذف انتخاب شده‌ها'
               )}
             </button>
           </div>
@@ -228,12 +206,9 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
           <div className="rounded-full bg-gray-100 p-3 dark:bg-gray-800">
             <FiImage className="h-6 w-6 text-gray-400 dark:text-gray-600" />
           </div>
-          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
-            هیچ فایلی یافت نشد
-          </h3>
+          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">هیچ فایلی یافت نشد</h3>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            هنوز هیچ فایلی آپلود نشده است. برای شروع، فایل‌های خود را آپلود
-            کنید.
+            هنوز هیچ فایلی آپلود نشده است. برای شروع، فایل‌های خود را آپلود کنید.
           </p>
         </div>
       )}
@@ -247,16 +222,75 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
             >
               <div className="absolute top-2 left-2 z-10">
                 <Checkbox
-                  checked={selectedItems.includes(item.id)}
-                  onChange={() => handleSelectionChange(item.id)}
+                  checked={selectedFiles.some(f => f.id === item.id && f.groupId === groupId)}
+                  onChange={(checked) => {
+                    const mediaFile: MediaFile = {
+                      id: item.id,
+                      url: getThumbnailUrl(item),
+                      filePath: item.filePath,
+                      altText: '',
+                      caption: '',
+                      title: '',
+                      isSelected: checked,
+                      groupId,
+                    };
+
+                    // If not multiple and trying to select a new file, deselect all others first
+                    if (!multiple && checked) {
+                      selectedFiles.forEach(file => {
+                        if (file.id !== item.id && file.groupId === groupId) {
+                          const unselectFile: MediaFile = {
+                            ...file,
+                            isSelected: false
+                          };
+
+                          if (onFileSelect) {
+                            onFileSelect(unselectFile);
+                          }
+                        }
+                      });
+                    }
+
+                    if (onFileSelect) {
+                      onFileSelect(mediaFile);
+                    }else{
+                      handleFileSelect(mediaFile);
+                    }
+                  }}
                 />
               </div>
 
-              <div
+              <div 
                 className="h-48 bg-gray-50 dark:bg-gray-700 rounded-t-lg flex items-center justify-center relative overflow-hidden cursor-pointer"
-                onClick={() => setSelectedFile(item)}
+                onClick={() => {
+                  const mediaFile: MediaFile = {
+                    id: item.id,
+                    url: getThumbnailUrl(item),
+                    filePath: item.filePath,
+                    altText: '',
+                    caption: '',
+                    title: '',
+                    isSelected: !selectedFiles.find(f => f.id === item.id && f.groupId === groupId)?.isSelected,
+                    groupId,
+                  };
+
+                  // If not multiple and trying to select a new file, deselect all others first
+                  if (!multiple && !selectedFiles.find(f => f.id === item.id && f.groupId === groupId)?.isSelected) {
+                    selectedFiles.forEach(file => {
+                      if (file.id !== item.id && file.groupId === groupId) {
+                        const unselectFile: MediaFile = {
+                          ...file,
+                          isSelected: false
+                        };
+                        onFileSelect(unselectFile);
+                      }
+                    });
+                  }
+
+                  onFileSelect(mediaFile);
+                }}
               >
-                {item.mimeType.startsWith("image/") ? (
+                {item.mimeType.startsWith('image/') ? (
                   <img
                     src={getThumbnailUrl(item)}
                     alt={item.fileName}
@@ -268,7 +302,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
               </div>
 
               <div className="p-4">
-                <h3
+                <h3 
                   className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
                   onClick={() => setSelectedFile(item)}
                 >
@@ -303,22 +337,19 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
       {data && (
         <div className="flex justify-center mt-6">
           <div className="flex space-x-2">
-            {Array.from(
-              { length: Math.ceil(data.data.total / itemsPerPage) },
-              (_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => handlePageChange(i + 1)}
-                  className={`px-3 py-1 rounded-md ${
-                    page === i + 1
-                      ? "bg-blue-600 dark:bg-blue-500 text-white"
-                      : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              )
-            )}
+            {Array.from({ length: Math.ceil(data.data.total / itemsPerPage) }, (_, i) => (
+              <button
+                key={i + 1}
+                onClick={() => handlePageChange(i + 1)}
+                className={`px-3 py-1 rounded-md ${
+                  page === i + 1
+                    ? 'bg-blue-600 dark:bg-blue-500 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -335,12 +366,11 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
         }}
         onConfirm={handleConfirmDelete}
         title={isBulkDelete ? "حذف فایل‌های انتخاب شده" : "حذف فایل"}
-        message={
-          isBulkDelete
-            ? `آیا از حذف ${selectedItems.length} فایل انتخاب شده اطمینان دارید؟`
-            : `آیا از حذف فایل "${fileToDelete?.fileName}" اطمینان دارید؟`
+        message={isBulkDelete 
+          ? `آیا از حذف ${selectedFiles.length} فایل انتخاب شده اطمینان دارید؟`
+          : `آیا از حذف فایل "${fileToDelete?.fileName}" اطمینان دارید؟`
         }
-        count={isBulkDelete ? selectedItems.length : 0}
+        count={isBulkDelete ? selectedFiles.length : 0}
         isLoading={isDeleting}
       />
 
@@ -358,5 +388,6 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ onSelectionChange }) => {
     </div>
   );
 };
+
 
 export default MediaGallery;

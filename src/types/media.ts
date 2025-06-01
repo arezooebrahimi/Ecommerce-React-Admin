@@ -34,7 +34,7 @@ export interface MediaRequest {
 }
 
 export interface UploadMediaResponse {
-    data: string[];
+    data: MediaItem[];
     isSuccess: boolean;
     statusCode: number;
     message: string;

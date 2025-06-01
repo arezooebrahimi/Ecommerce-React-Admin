@@ -22,10 +22,11 @@ import Categories from "./pages/Ecommerce/Categories";
 import { Toaster } from "react-hot-toast";
 import Medias from "./pages/Ecommerce/media/Medias";
 import AddMedia from "./pages/Ecommerce/media/AddMedia";
+import { MediaProvider } from "./context/MediaContext";
 export default function App() {
   return (
-    <>
-     <Toaster
+    <MediaProvider>
+    <Toaster
         position="top-center"
         toastOptions={{
           duration: 3000,
@@ -83,6 +84,6 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
-    </>
+    </MediaProvider> 
   );
 }
