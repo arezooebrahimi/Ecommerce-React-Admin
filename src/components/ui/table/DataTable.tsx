@@ -60,6 +60,7 @@ interface DataTableProps<T extends { id: string | number }> {
     deleteFunc?: (params: string[]) => Promise<{ data: DeleteDataResponse } | { error: unknown }>;
     isLoadingDelete?: boolean;
     onEdit?: (id: string) => void;
+    defaultFilters?: Filters;
 }
 
 function DataTable<T extends { id: string | number }>({
@@ -73,13 +74,14 @@ function DataTable<T extends { id: string | number }>({
     itemsPerPage = 10,
     deleteFunc,
     isLoadingDelete,
-    onEdit
+    onEdit,
+    defaultFilters
 }: DataTableProps<T>) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ column: keyof T; order: SortOrder }>(
         defaultSort || { column: columns[0].key as keyof T, order: 'desc' }
     );
-    const [filters, setFilters] = useState<Filters>({});
+    const [filters, setFilters] = useState<Filters>(defaultFilters || {});
     const [showFilter, setShowFilter] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -328,7 +330,6 @@ function DataTable<T extends { id: string | number }>({
                 title="حذف آیتم‌ها"
                 message="آیا از حذف آیتم‌های انتخاب شده اطمینان دارید؟"
                 count={selectedItems.length}
-                isLoading={isLoadingDelete || false}
             />
         </div>
     );

@@ -35,9 +35,14 @@ const navItems: NavItem[] = [
   },
   {
     icon: <BoxIcon />,
-    name: "محصولات",
+    name: "فروشگاه",
     subItems: [
       { name: "دسته‌بندی‌ها", path: "/categories", pro: false },
+      { name: "برچسب ها", path: "/tags", pro: false },
+      { name: "محصولات", path: "/products", pro: false },
+      { name: "ویژگی ها", path: "/features", pro: false },
+      { name: "برند ها", path: "/brands", pro: false },
+      { name: "دیدگاه ها", path: "/products-review", pro: false },
     ],
   },
 

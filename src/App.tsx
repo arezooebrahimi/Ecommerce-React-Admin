@@ -23,6 +23,13 @@ import { Toaster } from "react-hot-toast";
 import Medias from "./pages/Ecommerce/media/Medias";
 import AddMedia from "./pages/Ecommerce/media/AddMedia";
 import { MediaProvider } from "./context/MediaContext";
+import Features from "./pages/Ecommerce/Features";
+import Tags from "./pages/Ecommerce/Tags";
+import Brands from "./pages/Ecommerce/Brands";
+import Products from "./pages/Ecommerce/Products";
+import ProductsReview from "./pages/Ecommerce/ProductsReview";
+import FeatureOptions from "./pages/Ecommerce/FeatureOption";
+
 export default function App() {
   return (
     <MediaProvider>
@@ -51,6 +58,12 @@ export default function App() {
 
             <Route path="/medias" element={<Medias />} />
             <Route path="/add-media" element={<AddMedia />} />
+            <Route path="/feature-options" element={<FeatureOptions />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/brands" element={<Brands />} />
+            <Route path="/tags" element={<Tags />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products-review" element={<ProductsReview />} />      
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
