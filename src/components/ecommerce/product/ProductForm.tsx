@@ -100,12 +100,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, productI
                   id: media.mediaId,
                   url: thumbnail ? `${import.meta.env.VITE_MEDIA_STORAGE_URL}/${thumbnail.filePath}` : '',
                   filePath: thumbnail ? thumbnail.filePath : '',
-                  groupId: media.isPrimary ? 'medias' : 'home-image',
+                  groupId: media.isPrimary ? 'medias' : 'medias-gallery',
                   isSelected: true,
                   altText: media.altText || '',
                   caption: media.caption || '',
                   title: media.title || ''
-                }, media.isPrimary ? 'medias' : 'home-image');
+                }, media.isPrimary ? 'medias' : 'medias-gallery');
               }
             });
           } catch (error) {
@@ -146,19 +146,21 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, productI
             isPrimary: true,
             altText: media.altText,
             caption: media.caption,
-            title: media.title
+            title: media.title,
+            order: 1
           });
         });
 
       selectedFiles
-        .filter(file => file.groupId === 'home-image' && file.isSelected)
-        .forEach(media => {
+        .filter(file => file.groupId === 'medias-gallery' && file.isSelected)
+        .forEach((media,index) => {
           request.medias.push({
             mediaId: media.id,
             isPrimary: false,
             altText: media.altText,
             caption: media.caption,
-            title: media.title
+            title: media.title,
+            order: 2+index
           });
         });
 
@@ -304,6 +306,46 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, productI
                       </div>
                     )}
                   </div>
+
+
+                  <div className='mt-6'>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="medias">برای گالری محصول تصویر انتخاب کنید:</Label>
+                      <button
+                        type="button"
+                        onClick={() => handleShowMediaGallery("medias-gallery")}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03]"
+                      >
+                        انتخاب تصاویر
+                      </button>
+                    </div>
+                    {selectedFiles.filter(file => file.groupId === 'medias-gallery' && file.isSelected).length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedFiles.filter(file => file.groupId === 'medias-gallery' && file.isSelected).map((file) => (
+                          <div key={file.id} className="relative group">
+                            <img
+                              src={file.url}
+                              alt={file.altText || ''}
+                              className="h-20 w-20 rounded-lg object-cover"
+                            />
+                            <button
+                              onClick={() => removeFile(file.id, file.groupId)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                            {file.title && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
+                                {file.title}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -341,7 +383,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, productI
         <MediaGalleryModal
           show={showMediaGallery}
           onClose={() => setShowMediaGallery(false)}
-          multiple={false}
+          multiple={groupId === 'medias-gallery'}
           groupId={groupId}
         />
       )}

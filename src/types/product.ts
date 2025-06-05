@@ -49,6 +49,7 @@ interface Media {
   altText?: string;
   caption?: string;
   title?: string;
+  order?: number;
 }
 
 export interface getProductByIdResponse {
